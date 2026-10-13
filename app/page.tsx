@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Callout,
   ChapterOpener,
@@ -57,7 +58,7 @@ export default function Home() {
           components/design-system 의 컴포넌트를 실제로 렌더링해 확인하는 페이지입니다.
         </p>
 
-        <a
+        <Link
           href="/editor"
           style={{
             display: "inline-block",
@@ -73,7 +74,7 @@ export default function Home() {
           }}
         >
           📝 블록 에디터 열기 →
-        </a>
+        </Link>
 
         <h2 style={sectionTitleStyle}>표지</h2>
         <Cover titleLines={["컴퓨터", "교육책"]} tagline="자격증이 아니라, 실력이 남는 공부" />

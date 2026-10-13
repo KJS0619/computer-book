@@ -1,10 +1,20 @@
 import type { BookDocument } from "@/types/editor";
+import { isNativeApp, shareTextFileNative } from "@/utils/nativeShare";
 
 /**
  * JSON 파일로 내보내기
  */
 export function exportToJson(document: BookDocument): void {
   const json = JSON.stringify(document, null, 2);
+
+  // 앱(Capacitor)에서는 <a download> 가 동작하지 않아 공유 시트로 저장·전송한다. 웹에서는 아래 기존 동작 그대로.
+  if (isNativeApp()) {
+    void shareTextFileNative(json, `${sanitizeFilename(document.title)}.json`).catch((e) =>
+      console.error("JSON 저장·공유 실패", e)
+    );
+    return;
+  }
+
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
@@ -57,6 +67,12 @@ export function importFromJson(): Promise<BookDocument> {
  * 새 창에서 전체 챕터를 렌더링 후 인쇄 다이얼로그 호출
  */
 export function exportToPdf(document: BookDocument): void {
+  // 앱 WebView 는 새 창 인쇄(window.print)를 지원하지 않는다. 웹에서 PDF 로 내보내도록 안내한다.
+  if (isNativeApp()) {
+    window.alert("앱에서는 PDF 내보내기를 지원하지 않아요. JSON으로 내보낸 뒤 웹 버전에서 가져와 PDF로 만들어 주세요.");
+    return;
+  }
+
   // 새 창 열기
   const printWindow = window.open("", "_blank", "width=800,height=600");
   if (!printWindow) {

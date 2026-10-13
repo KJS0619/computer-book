@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { tokens } from "@/components/design-system";
 import { useEditorStore } from "@/store/editorStore";
 import { ChapterEditor } from "./ChapterEditor";
@@ -10,6 +11,11 @@ import { exportToJson, importFromJson, exportToPdf } from "@/utils/fileExport";
 
 export function EditorLayout() {
   const [mounted, setMounted] = useState(false);
+
+  // 앱(Capacitor) 빌드 + 좁은 화면(폰)에서만 한 번에 한 패널씩 보여준다. 웹은 기존 3단 레이아웃 그대로.
+  const isAppBuild = process.env.NEXT_PUBLIC_APP_BUILD === "true";
+  const [isNarrow, setIsNarrow] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"chapters" | "edit" | "preview">("edit");
 
   const {
     document,
@@ -33,6 +39,15 @@ export function EditorLayout() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!isAppBuild) return;
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsNarrow(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, [isAppBuild]);
 
   const activeChapter = document.chapters.find((ch) => ch.id === activeChapterId);
 
@@ -89,15 +104,43 @@ export function EditorLayout() {
       <header
         style={{
           display: "flex",
+          flexDirection: isNarrow ? "column" : "row",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: isNarrow ? "stretch" : "center",
+          gap: isNarrow ? tokens.space.space2 : undefined,
           padding: `${tokens.space.space2} ${tokens.space.space4}`,
           background: tokens.color.paper,
           borderBottom: `1px solid ${tokens.color.surfaceBorder}`,
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: tokens.space.space3 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: tokens.space.space3,
+            flexWrap: isNarrow ? "wrap" : "nowrap",
+          }}
+        >
+          {/* 앱(Capacitor) 빌드에서만 표시: 앱에는 브라우저 주소창·뒤로 가기 버튼이 없어 홈으로 돌아갈 길을 둔다. */}
+          {process.env.NEXT_PUBLIC_APP_BUILD === "true" && (
+            <Link
+              href="/"
+              style={{
+                padding: `${tokens.space.space1} ${tokens.space.space3}`,
+                fontFamily: tokens.font.heading,
+                fontSize: tokens.type.caption.fontSize,
+                color: tokens.color.inkMuted,
+                background: "transparent",
+                border: `1px solid ${tokens.color.surfaceBorder}`,
+                borderRadius: tokens.radius.sm,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              ← 홈
+            </Link>
+          )}
           <span
             style={{
               fontFamily: tokens.font.heading,
@@ -122,7 +165,9 @@ export function EditorLayout() {
               background: tokens.color.surfaceTint,
               border: `1px solid ${tokens.color.surfaceBorder}`,
               borderRadius: tokens.radius.sm,
-              width: 200,
+              width: isNarrow ? undefined : 200,
+              flex: isNarrow ? 1 : undefined,
+              minWidth: isNarrow ? 0 : undefined,
               outline: "none",
             }}
           />
@@ -139,7 +184,13 @@ export function EditorLayout() {
           )}
         </div>
 
-        <div style={{ display: "flex", gap: tokens.space.space2 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: tokens.space.space2,
+            flexWrap: isNarrow ? "wrap" : "nowrap",
+          }}
+        >
           <button
             onClick={newDocument}
             style={{
@@ -204,18 +255,67 @@ export function EditorLayout() {
         </div>
       </header>
 
+      {/* 좁은 화면(앱) 전용 탭: 목차 / 편집 / 미리보기 */}
+      {isNarrow && (
+        <nav
+          style={{
+            display: "flex",
+            background: tokens.color.paper,
+            borderBottom: `1px solid ${tokens.color.surfaceBorder}`,
+            flexShrink: 0,
+          }}
+        >
+          {(
+            [
+              ["chapters", "목차"],
+              ["edit", "편집"],
+              ["preview", "미리보기"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setMobileTab(key)}
+              style={{
+                flex: 1,
+                padding: `${tokens.space.space2} 0`,
+                fontFamily: tokens.font.heading,
+                fontSize: tokens.type.body.fontSize,
+                fontWeight: mobileTab === key ? 700 : 400,
+                color: mobileTab === key ? tokens.color.brand : tokens.color.inkMuted,
+                background: "transparent",
+                border: "none",
+                borderBottom:
+                  mobileTab === key
+                    ? `2px solid ${tokens.color.brand}`
+                    : "2px solid transparent",
+                cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+
       {/* 메인 영역: 사이드바 + 에디터 + 미리보기 */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* 챕터 사이드바 */}
-        <ChapterSidebar
-          chapters={document.chapters}
-          activeChapterId={activeChapterId}
-          onSelectChapter={setActiveChapter}
-          onAddChapter={addChapter}
-          onDeleteChapter={deleteChapter}
-        />
+        {(!isNarrow || mobileTab === "chapters") && (
+          <ChapterSidebar
+            chapters={document.chapters}
+            activeChapterId={activeChapterId}
+            onSelectChapter={(chapterId) => {
+              setActiveChapter(chapterId);
+              if (isNarrow) setMobileTab("edit");
+            }}
+            onAddChapter={addChapter}
+            onDeleteChapter={deleteChapter}
+            fullWidth={isNarrow}
+          />
+        )}
 
         {/* 에디터 영역 */}
+        {(!isNarrow || mobileTab === "edit") && (
         <div
           style={{
             flex: 1,
@@ -245,12 +345,14 @@ export function EditorLayout() {
                 fontFamily: tokens.font.body,
               }}
             >
-              왼쪽에서 챕터를 선택하세요
+              {isNarrow ? "목차 탭에서 챕터를 선택하세요" : "왼쪽에서 챕터를 선택하세요"}
             </div>
           )}
         </div>
+        )}
 
         {/* 미리보기 영역 */}
+        {(!isNarrow || mobileTab === "preview") && (
         <div
           style={{
             flex: 1,
@@ -274,6 +376,7 @@ export function EditorLayout() {
             {activeChapter && <Preview chapter={activeChapter} />}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -9,6 +9,8 @@ interface ChapterSidebarProps {
   onSelectChapter: (chapterId: string) => void;
   onAddChapter: () => void;
   onDeleteChapter: (chapterId: string) => void;
+  /** 좁은 화면(앱)에서 목차를 화면 전체 폭으로 보여줄 때 사용. 기본값 false 는 기존 220px 고정. */
+  fullWidth?: boolean;
 }
 
 export function ChapterSidebar({
@@ -17,11 +19,12 @@ export function ChapterSidebar({
   onSelectChapter,
   onAddChapter,
   onDeleteChapter,
+  fullWidth = false,
 }: ChapterSidebarProps) {
   return (
     <div
       style={{
-        width: 220,
+        width: fullWidth ? "100%" : 220,
         flexShrink: 0,
         background: tokens.color.paper,
         borderRight: `1px solid ${tokens.color.surfaceBorder}`,
